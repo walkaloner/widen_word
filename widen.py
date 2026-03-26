@@ -12,6 +12,7 @@ def read_image_chinese_path(path):
     data = np.fromfile(path, dtype=np.uint8)
     # 使用 OpenCV 从字节数据解码成图像，指定为灰度模式
     img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE)
+    print_matrix("img", img)
     return img
 
 
@@ -31,6 +32,15 @@ def save_image_chinese_path(path, img):
     # 把编码后的图像数据写入文件，使用 tofile 方法直接写入二进制数据
     encoded.tofile(path)
 
+def print_matrix(name, mat):
+    h, w = mat.shape
+    print(f"\n{name}: {h}x{w}")
+    for row in mat:
+        # " ".join(...) 是“用一个空格，把很多字符串连接起来”
+        # f"{int(v):3d}" 是把每个像素值 v 转换成一个宽度为3的整数字符串，右对齐
+        # :^3d 是居中对齐，:>3d 是右对齐，:<3d 是左对齐
+        # :#04x 是以16进制格式输出，宽度为4，不足部分用0填充， # 表示在前面加上0x前缀
+        print(" ".join(f"{int(v):^3d}" for v in row))
 
 def thicken_black_strokes(gray_img, threshold_value=200, ksize=3, iterations=1):
     """
@@ -43,6 +53,7 @@ def thicken_black_strokes(gray_img, threshold_value=200, ksize=3, iterations=1):
     # 二值化：背景白、字黑
     # 大于阈值的像素值设为255（白色），小于等于阈值的像素值设为0（黑色）
     _, binary = cv2.threshold(gray_img, threshold_value, 255, cv2.THRESH_BINARY)
+    # binary = gray_img  # 直接使用灰度图进行处理，保留细节
 
     if ksize < 1:
         ksize = 1
@@ -52,8 +63,14 @@ def thicken_black_strokes(gray_img, threshold_value=200, ksize=3, iterations=1):
     kernel = np.ones((ksize, ksize), np.uint8)
 
     # 黑字加粗：反相 -> 膨胀 -> 再反相
+    print_matrix("Binary", binary)
     inv = 255 - binary
+    print_matrix("Inverted", inv)
+
+    # 以矩阵的每个点为中心依此过卷积核 该卷积处理作用是使该点值变为当前卷积核覆盖区域的最大值
+    # kernel是卷积核，iterations是卷积操作的次数，卷积核越大，次数越多，膨胀效果越明显
     dilated = cv2.dilate(inv, kernel, iterations=iterations)
+    print_matrix("Dilated", dilated)
     result = 255 - dilated
 
     # # 腐蚀：直接对二值图像进行腐蚀，黑字加粗
